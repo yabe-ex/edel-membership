@@ -1,0 +1,140 @@
+:root {
+    --edel-bg-color: #f9f9f9;
+    --edel-text-color: #333;
+    --edel-input-border: #ccc;
+}
+
+.edel-container {
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 30px;
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
+}
+
+.edel-form .edel-field {
+    margin-bottom: 20px;
+}
+
+.edel-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: normal;
+    font-size: 0.95rem;
+    color: var(--edel-text-color);
+}
+
+.edel-form label.edel-inline-label {
+    display: inline-block;
+    margin-bottom: 0;
+    cursor: pointer;
+}
+
+.edel-form input[type='text'],
+.edel-form input[type='email'],
+.edel-form input[type='password'] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--edel-input-border);
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 1rem;
+    background-color: #fff;
+    transition: border-color 0.3s ease;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.edel-form input:focus {
+    border-color: var(--edel-base-color);
+    outline: none;
+}
+
+/* ★変更: buttonと .edel-btn にスタイルを適用 */
+.edel-form button,
+.edel-btn {
+    display: block; /* リンク用にblock指定 */
+    text-align: center; /* リンクのテキスト中央寄せ */
+    text-decoration: none; /* リンクの下線消し */
+    width: 100%;
+    padding: 14px;
+    background-color: var(--edel-base-color);
+    color: #fff;
+    border: 1px solid var(--edel-base-color);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    font-weight: normal;
+    -webkit-appearance: none;
+    box-sizing: border-box; /* パディングを含めた幅計算 */
+}
+
+/* ホバー時 */
+.edel-form button:hover,
+.edel-btn:hover {
+    background-color: #fff;
+    color: var(--edel-base-color);
+    opacity: 1;
+}
+
+.edel-errors {
+    background: #fff5f5;
+    color: #e53e3e;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    border: 1px solid #fed7d7;
+    font-size: 0.9rem;
+}
+
+.edel-errors ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.edel-desc {
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+/* 通知メッセージ */
+#edel-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: var(--edel-base-color);
+    color: #fff;
+    padding: 16px 30px;
+    border-radius: 4px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    font-size: 1rem;
+    z-index: 99999;
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+}
+
+#edel-notification.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* メッセージ内のリンクスタイル */
+.edel-msg-link {
+    display: inline-block;
+    margin-top: 5px;
+    text-decoration: underline;
+    font-weight: bold;
+    color: inherit; /* テキスト色を引き継ぐ */
+    cursor: pointer;
+}
+
+.edel-msg-link:hover {
+    opacity: 0.7;
+    text-decoration: none;
+}
