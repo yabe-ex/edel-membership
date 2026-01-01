@@ -4,6 +4,7 @@ class EdelMembershipFront {
     private $option_name = 'edel_membership_settings';
     private $options;
     private $errors = array();
+    private $success_messages = array();
 
     public function __construct() {
         $this->options = get_option($this->option_name);
@@ -29,7 +30,7 @@ class EdelMembershipFront {
         wp_register_style(EDEL_MEMBERSHIP_SLUG . '-front',  EDEL_MEMBERSHIP_URL . '/css/front.css', array(), $version);
         wp_enqueue_style(EDEL_MEMBERSHIP_SLUG . '-front');
 
-        // --- 設定値の取得 ---
+        // 設定値の取得
         $raw_enabled = isset($this->options['recaptcha_enabled']) ? $this->options['recaptcha_enabled'] : 'NOT SET';
         $raw_site_key = isset($this->options['recaptcha_site_key']) ? $this->options['recaptcha_site_key'] : 'NOT SET';
 
@@ -47,21 +48,14 @@ class EdelMembershipFront {
             )
         );
 
-        // 変数渡し
         wp_register_script(EDEL_MEMBERSHIP_SLUG . '-front', EDEL_MEMBERSHIP_URL . '/js/front.js', array('jquery'), $version, $strategy);
         wp_localize_script(EDEL_MEMBERSHIP_SLUG . '-front', 'edel_membership_vars', $js_vars);
 
         if ($is_recaptcha_active) {
-            // ★修正1: ハンドル名を 'edel-google-recaptcha' に変更して競合回避
-            // これにより、他のプラグインが読み込んでいても、こちらのキー付きスクリプトが別途ロードされます
             wp_enqueue_script('edel-google-recaptcha', "https://www.google.com/recaptcha/api.js?render={$site_key}", array(), null, true);
 
-            // ★修正2: 依存関係も新しいハンドル名に変更して、読み込み順序を保証
-            // (一度登録解除してから依存関係を追加して再登録)
             wp_deregister_script(EDEL_MEMBERSHIP_SLUG . '-front');
             wp_register_script(EDEL_MEMBERSHIP_SLUG . '-front', EDEL_MEMBERSHIP_URL . '/js/front.js', array('jquery', 'edel-google-recaptcha'), $version, $strategy);
-
-            // 再度localizeが必要になるためセット
             wp_localize_script(EDEL_MEMBERSHIP_SLUG . '-front', 'edel_membership_vars', $js_vars);
         }
 
@@ -83,7 +77,6 @@ class EdelMembershipFront {
             return;
         }
 
-        // reCAPTCHAチェック
         if (!$this->verify_recaptcha()) {
             $this->errors[] = 'reCAPTCHA認証に失敗しました。';
             return;
@@ -118,6 +111,10 @@ class EdelMembershipFront {
             $this->errors[] = 'ユーザー名またはパスワードが間違っています。';
         } else {
             $redirect = !empty($this->options['login_redirect_url']) ? $this->options['login_redirect_url'] : home_url();
+
+            // ★変更: ログイン成功パラメータを付与
+            $redirect = add_query_arg('edel_status', 'logged_in', $redirect);
+
             wp_safe_redirect($redirect);
             exit;
         }
@@ -140,6 +137,11 @@ class EdelMembershipFront {
             return;
         }
 
+        if (strlen($password) < 8) {
+            $this->errors[] = 'パスワードは8文字以上で設定してください。';
+            return;
+        }
+
         if (username_exists($username) || email_exists($email)) {
             $this->errors[] = 'そのユーザー名またはメールアドレスは既に使用されています。';
             return;
@@ -152,13 +154,20 @@ class EdelMembershipFront {
         } else {
             $this->send_mail('register', $email, $username);
 
+            // ステータス判定用変数
+            $status_slug = 'registered';
+
             if (!empty($this->options['auto_login_after_register'])) {
                 wp_set_current_user($user_id);
                 wp_set_auth_cookie($user_id);
+                // ★自動ログイン成功時のステータス
+                $status_slug = 'registered_login';
             }
 
             $redirect = !empty($this->options['register_redirect_url']) ? $this->options['register_redirect_url'] : home_url();
-            $redirect = add_query_arg('edel_status', 'registered', $redirect);
+
+            // ★変更: 状況に応じたパラメータを付与
+            $redirect = add_query_arg('edel_status', $status_slug, $redirect);
 
             wp_safe_redirect($redirect);
             exit;
@@ -168,8 +177,6 @@ class EdelMembershipFront {
     // --- ロジック: パスワードリセット要求 ---
     private function process_reset_request() {
         $user_input = sanitize_text_field($_POST['user_login']);
-
-        // ユーザー特定（メール or ID）
         $user = get_user_by('email', $user_input);
         if (!$user && !is_email($user_input)) {
             $user = get_user_by('login', $user_input);
@@ -178,21 +185,14 @@ class EdelMembershipFront {
         if ($user) {
             $key = get_password_reset_key($user);
             if (!is_wp_error($key)) {
-                // 再設定用ページURL取得
                 $base_url = isset($this->options['reset_password_page_url']) ? $this->options['reset_password_page_url'] : home_url();
-
-                // ★修正1: rawurlencode を削除 (add_query_argが自動で行うため)
                 $reset_url = add_query_arg(array('key' => $key, 'login' => $user->user_login), $base_url);
-
-                // ★修正2: テスト用にURLをログに出力 (本番時は削除推奨)
                 error_log('[Edel Membership] Password Reset URL: ' . $reset_url);
-
                 $this->send_mail('reset', $user->user_email, $user->user_login, $reset_url);
             }
         }
 
-        // セキュリティのため、成功失敗に関わらず同じメッセージを表示
-        $this->errors[] = '登録メールアドレス宛に再設定リンクを送信しました。（メールが届かない場合は入力内容を確認してください）';
+        $this->success_messages[] = '登録メールアドレス宛に再設定リンクを送信しました。<br>（メールが届かない場合は入力内容を確認してください）';
     }
 
     // --- ロジック: 新パスワード保存 ---
@@ -207,6 +207,11 @@ class EdelMembershipFront {
             return;
         }
 
+        if (strlen($pass1) < 8) {
+            $this->errors[] = 'パスワードは8文字以上で設定してください。';
+            return;
+        }
+
         if ($pass1 !== $pass2) {
             $this->errors[] = 'パスワードが一致しません。';
             return;
@@ -217,13 +222,8 @@ class EdelMembershipFront {
             $this->errors[] = 'このリンクは無効か、有効期限が切れています。もう一度リセットリクエストを行ってください。';
         } else {
             reset_password($user, $pass1);
-
-            // ★変更: ログインページのURLを設定
-            // ※ '/login/' の部分は、ログインページのスラッグに合わせて変更してください
-            $login_url = home_url('/login/');
-
-            // リンク付きのメッセージに変更
-            $this->errors[] = 'パスワードを変更しました。<br><a href="' . esc_url($login_url) . '" class="edel-msg-link">ログインページへ移動する</a>';
+            $login_url = !empty($this->options['login_page_url']) ? $this->options['login_page_url'] : wp_login_url();
+            $this->success_messages[] = 'パスワードを変更しました。<br><a href="' . esc_url($login_url) . '" class="edel-msg-link">ログインページへ移動する</a>';
         }
     }
 
@@ -259,7 +259,6 @@ class EdelMembershipFront {
             return false;
         }
 
-        // 閾値を0.1で維持（テスト用）
         $threshold = 0.1;
         $score = isset($body['score']) ? floatval($body['score']) : 0;
 
@@ -341,25 +340,48 @@ class EdelMembershipFront {
         $is_email_only = !empty($this->options['email_only_register']);
         $recaptcha_active = $this->is_recaptcha_active();
 
-        $errors_html = '';
-        if (!empty($this->errors)) {
-            $errors_html = '<div class="edel-errors"><ul>';
-            foreach ($this->errors as $err) $errors_html .= "<li>{$err}</li>";
-            $errors_html .= '</ul></div>';
+        $messages_html = '';
+
+        if (!empty($this->success_messages)) {
+            $messages_html .= '<div class="edel-success"><ul>';
+            foreach ($this->success_messages as $msg) $messages_html .= "<li>{$msg}</li>";
+            $messages_html .= '</ul></div>';
         }
 
-        $html = "<div class='edel-container'>{$errors_html}<form method='post' class='edel-form edel-form-{$type}'>";
+        if (!empty($this->errors)) {
+            $messages_html .= '<div class="edel-errors"><ul>';
+            foreach ($this->errors as $err) $messages_html .= "<li>{$err}</li>";
+            $messages_html .= '</ul></div>';
+        }
+
+        $html = "<div class='edel-container'>{$messages_html}<form method='post' class='edel-form edel-form-{$type}'>";
         $html .= "<input type='hidden' name='edel_action' value='{$type}'>";
 
         if ($recaptcha_active) {
             $html .= "<input type='hidden' name='g-recaptcha-response' class='edel-recaptcha-response'>";
         }
 
+        $pwd_field_html = function ($name, $label = 'パスワード', $with_meter = false) {
+            $meter_html = $with_meter ? '<div class="edel-password-meter"><div class="meter-bar"></div><span class="meter-text"></span></div>' : '';
+            return "
+                <div class='edel-field'>
+                    <label>{$label}</label>
+                    <div class='edel-password-wrapper'>
+                        <input type='password' name='{$name}' required class='edel-input-password'>
+                        <span class='edel-password-toggle' title='パスワードを表示'>
+                            <svg class='icon-eye' viewBox='0 0 24 24' width='20' height='20' stroke='currentColor' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'><path d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'></path><circle cx='12' cy='12' r='3'></circle></svg>
+                            <svg class='icon-eye-off' viewBox='0 0 24 24' width='20' height='20' stroke='currentColor' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round' style='display:none;'><path d='M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24'></path><line x1='1' y1='1' x2='23' y2='23'></line></svg>
+                        </span>
+                    </div>
+                    {$meter_html}
+                </div>";
+        };
+
         switch ($type) {
             case 'login':
                 $login_label = $is_email_only ? 'メールアドレス' : 'ユーザー名 / メールアドレス';
                 $html .= '<div class="edel-field"><label>' . esc_html($login_label) . '</label><input type="text" name="log" required></div>';
-                $html .= '<div class="edel-field"><label>パスワード</label><input type="password" name="pwd" required></div>';
+                $html .= $pwd_field_html('pwd', 'パスワード', false);
                 $html .= '<div class="edel-field"><label class="edel-inline-label"><input type="checkbox" name="remember"> ログイン状態を保存</label></div>';
                 $html .= '<button type="submit">ログイン</button>';
                 break;
@@ -369,7 +391,7 @@ class EdelMembershipFront {
                     $html .= '<div class="edel-field"><label>ユーザー名</label><input type="text" name="user_login" required></div>';
                 }
                 $html .= '<div class="edel-field"><label>メールアドレス</label><input type="email" name="user_email" required></div>';
-                $html .= '<div class="edel-field"><label>パスワード</label><input type="password" name="user_pass" required></div>';
+                $html .= $pwd_field_html('user_pass', 'パスワード', true);
                 $html .= '<button type="submit">登録する</button>';
                 break;
 
@@ -382,8 +404,8 @@ class EdelMembershipFront {
             case 'reset_new':
                 $html .= '<input type="hidden" name="key" value="' . esc_attr($_GET['key']) . '">';
                 $html .= '<input type="hidden" name="login" value="' . esc_attr($_GET['login']) . '">';
-                $html .= '<div class="edel-field"><label>新しいパスワード</label><input type="password" name="pass1" required></div>';
-                $html .= '<div class="edel-field"><label>新しいパスワード(確認)</label><input type="password" name="pass2" required></div>';
+                $html .= $pwd_field_html('pass1', '新しいパスワード', true);
+                $html .= $pwd_field_html('pass2', '新しいパスワード(確認)', false);
                 $html .= '<button type="submit">パスワード変更</button>';
                 break;
         }

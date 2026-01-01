@@ -2,6 +2,7 @@
     --edel-bg-color: #f9f9f9;
     --edel-text-color: #333;
     --edel-input-border: #ccc;
+    /* --edel-base-color はPHPから出力 */
 }
 
 .edel-container {
@@ -32,11 +33,20 @@
     cursor: pointer;
 }
 
+/* --- パスワード入力周り (New) --- */
+.edel-password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
 .edel-form input[type='text'],
 .edel-form input[type='email'],
 .edel-form input[type='password'] {
     width: 100%;
     padding: 12px;
+    /* アイコン分の右余白を確保 */
+    padding-right: 40px;
     border: 1px solid var(--edel-input-border);
     border-radius: 4px;
     box-sizing: border-box;
@@ -52,12 +62,59 @@
     outline: none;
 }
 
-/* ★変更: buttonと .edel-btn にスタイルを適用 */
+/* 目のアイコン */
+.edel-password-toggle {
+    position: absolute;
+    right: 10px;
+    cursor: pointer;
+    color: #888;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.3s;
+    user-select: none;
+}
+.edel-password-toggle:hover {
+    color: var(--edel-base-color);
+}
+
+/* --- 強度メーター (New) --- */
+.edel-password-meter {
+    margin-top: 8px;
+    font-size: 0.8rem;
+}
+.edel-password-meter .meter-bar {
+    height: 4px;
+    background: #eee;
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.3s, background-color 0.3s;
+    margin-bottom: 4px;
+}
+/* 強度別の色 */
+.edel-password-meter .meter-bar.weak {
+    background-color: #e53e3e;
+} /* 赤 */
+.edel-password-meter .meter-bar.medium {
+    background-color: #d69e2e;
+} /* 黄 */
+.edel-password-meter .meter-bar.strong {
+    background-color: #2f855a;
+} /* 緑 */
+
+.edel-password-meter .meter-text {
+    font-size: 0.85rem;
+    display: block;
+    text-align: right;
+    min-height: 1.2em;
+}
+
+/* --- ボタン --- */
 .edel-form button,
 .edel-btn {
-    display: block; /* リンク用にblock指定 */
-    text-align: center; /* リンクのテキスト中央寄せ */
-    text-decoration: none; /* リンクの下線消し */
+    display: block;
+    text-align: center;
+    text-decoration: none;
     width: 100%;
     padding: 14px;
     background-color: var(--edel-base-color);
@@ -69,10 +126,9 @@
     transition: all 0.3s ease;
     font-weight: normal;
     -webkit-appearance: none;
-    box-sizing: border-box; /* パディングを含めた幅計算 */
+    box-sizing: border-box;
 }
 
-/* ホバー時 */
 .edel-form button:hover,
 .edel-btn:hover {
     background-color: #fff;
@@ -80,6 +136,7 @@
     opacity: 1;
 }
 
+/* メッセージ関連 */
 .edel-errors {
     background: #fff5f5;
     color: #e53e3e;
@@ -90,7 +147,18 @@
     font-size: 0.9rem;
 }
 
-.edel-errors ul {
+.edel-success {
+    background: #f0fff4;
+    color: #2f855a;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    border: 1px solid #c6f6d5;
+    font-size: 0.95rem;
+}
+
+.edel-errors ul,
+.edel-success ul {
     margin: 0;
     padding-left: 20px;
 }
@@ -101,18 +169,36 @@
     color: #666;
 }
 
+.edel-msg-link {
+    display: inline-block;
+    margin-top: 5px;
+    text-decoration: underline;
+    font-weight: bold;
+    color: inherit;
+    cursor: pointer;
+}
+.edel-msg-link:hover {
+    opacity: 0.7;
+    text-decoration: none;
+}
+
 /* 通知メッセージ */
 #edel-notification {
     position: fixed;
     top: 20px;
     right: 20px;
-    background-color: var(--edel-base-color);
-    color: #fff;
+
+    /* 緑ベースのスタイルに変更 */
+    background-color: #f0fff4; /* 薄い緑 */
+    color: #2f855a; /* 濃い緑の文字 */
+    border: 1px solid #c6f6d5; /* 枠線 */
+
     padding: 16px 30px;
     border-radius: 4px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); /* 影を少し薄く調整 */
     font-size: 1rem;
     z-index: 99999;
+
     opacity: 0;
     transform: translateY(-20px);
     transition: opacity 0.5s ease, transform 0.5s ease;
@@ -122,19 +208,4 @@
 #edel-notification.show {
     opacity: 1;
     transform: translateY(0);
-}
-
-/* メッセージ内のリンクスタイル */
-.edel-msg-link {
-    display: inline-block;
-    margin-top: 5px;
-    text-decoration: underline;
-    font-weight: bold;
-    color: inherit; /* テキスト色を引き継ぐ */
-    cursor: pointer;
-}
-
-.edel-msg-link:hover {
-    opacity: 0.7;
-    text-decoration: none;
 }
